@@ -1,0 +1,28 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1467247379983.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "F2A6B7F3",
+    "lastKnownWriteTime" : 4831950432,
+    "last_content_update" : 1467247379983,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "h9ej2voq9w",
+        "caption" : "nba_data_by_year_group_team",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=nba_data_by_year_group_team&cache_key=h9ej2voq9w",
+        "displayedObservations" : 61,
+        "environment" : "",
+        "object" : "nba_data_by_year_group_team",
+        "totalObservations" : 61,
+        "variables" : 3
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}

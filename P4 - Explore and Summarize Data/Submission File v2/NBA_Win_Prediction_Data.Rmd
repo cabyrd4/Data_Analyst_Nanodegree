@@ -1,0 +1,594 @@
+---
+output: html_document
+---
+NBA Win Predictions by C. Andrew Byrd IV
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+#install.packages("ggplot2", dependencies = T, repos = "http://cran.us.r-project.org") 
+#install.packages("knitr", dependencies = T, repos = "http://cran.us.r-project.org")
+#install.packages("dplyr", dependencies = T, repos = "http://cran.us.r-project.org")
+
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(memisc)
+library(knitr)
+```
+# Introduction
+I have recently been reading "Mathletics" by Wayne Winston (http://waynewinston.com/wordpress/?page_id=13).  It's a neat book where this sport enthusiast and math professor walks the reader through how to calculate most any statistic for baseball, basketball, and football.  I found his chapters on basketball and the NBA very fun to read.  I also wanted to test his thoughts on how to predict wins for NBA teams using only information from the box score.  He issues the assertion that you can create a wins model by looking at about 8 different variables regarding everything from effectiveness in the team's shooting to the other team's effectiveness in getting to the free throw line.
+
+To create the model, Winston compares a team's abilities against their opponents (i.e. The team's EFG% vs the opponent's EFG%).  This is done with EFG, TTP, Rebrate, and FTR by just take the differences between the team's statistics and their opponents.  I've created these fields below to be studied within this project.
+
+I've outlined all details of the data in the "NBA Data Info"" file.
+
+  
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+nba=read.csv("nba_data.csv")
+
+nba$EFG_diff = nba$EFG - nba$Opp_EFG
+nba$TTP_diff = nba$TTP - nba$DTTP
+nba$RebRate_diff = nba$ORebRate - nba$DRebRate
+nba$FTR_diff = nba$FTR - nba$OFTR
+```
+
+# Variable Analysis
+```{r echo=FALSE, Univariate_Plots}
+dim(nba)
+names(nba)
+str(nba)
+levels(nba$Team)
+levels(nba$MadePlayoffs)
+levels(nba$Conference)
+summary(nba)
+```
+
+### What is the structure of your dataset?
+The data set has 1,014 observations of NBA teams across 36 years (1980 to 2016).  I choose to begin in 1980 because that is the first year there was a 3 point line.  Since EFG will become such an important variable (spoiler alert!), I thought it would be better to have 3P Field Goal data in the study.  Each line begins with the team's name (Usually a combination of city and mascot), the year in which the team participated in the NBA, and their winning percentage (Wins / Games Played) for the respective season. 
+
+Each observation has variables associated with advanced statistics of basketball performance.  Outside of the category fields (i.e. Making the playoffs and a team's conference), the variables have a pairing of how well the team performs in this area and how well the team's opponents fair in the same area.  This includes variables like:
+
+Effective Field Goal % (EFG) & Opponent Effective Field Goal % (Opp_EFG)
+Turnovers / Possession (TTP) & Turnovers Caused / Possession (DTTP)
+Offensive Rebound Rate (ORebRate) & Defensive Rebound Rate (DRebRate)
+Free Throw Rate (FTR) & Opponent's Free Throw Rate (OFTR)
+
+Since there is such a pairing among 8 (4 pairings) of my variables, I've also included the difference to better display how a team performs against opponents for that skill (i.e. Effective Field Goal % Difference).
+
+Some of my categorical variables include whether a team made the playoffs (post season tournament reserved for top half of teams) and which conference they reside (East or West).
+
+### What is/are the main feature(s) of interest in your dataset?
+The main features of the data set are Winning % and the 4 pairing team vs opponent difference variables (EFG, TTP, RebRate, and FTR)  as I want expand upon Wayne Winston's work (He only examined 1 year, using Excel) of predicting winning % from the difference variables.
+
+### What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
+I think it will also be helpful to look at the individual variables (non difference pairs) and the "MadePlayoffs" variable in terms of predicting win percentage.  I believe the "MadePlayoffs" variable will be very helpful when graphed to show direction of variable effectiveness (i.e. Using a scatter plot with colored dots based on if the team made the playoffs will show which teams are doing better).  
+
+### Did you create any new variables from existing variables in the dataset?
+I created the difference pair variables.  It's the method Winston determined was the based relationship for measuring wins.  The remainder were created by scraping data from Basketball Reference website (Outlined in separate file).
+
+### Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
+It's very interesting that the mean for the W.L. is .500.  I say that because it seems very ideal.  It's not always the case but I can also see that we should have "normal" like graphs as most of the means and medians are very close in values.  I was able to scrape the data in the current form (it just needed a few clean up scripts and merging).
+
+# Variable Plots
+The graphs below offer a quick histogram for each variable.  I also broke out each variable within "facet_wrap" to show any difference for playoff teams and non-playoff teams.  I thought this would help determine if there are basketball benefits to the variable as going to the playoffs is seen as being success.
+
+## W/L%
+```{r echo=FALSE}
+ggplot(aes(x = `W.L.`), data = nba) +
+  geom_histogram(binwidth = .02)
+  
+ggplot(aes(x = `W.L.`), data = nba) +
+  geom_histogram(binwidth = .02) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = `W.L.`,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .02, position = 'dodge', alpha = .75)
+
+by(nba$`W.L.`, nba$MadePlayoffs, summary)
+```
+
+The W.L.% has a somewhat normal distribution.  It's also obvious that teams with a higher winning percentage are more likely to be in the playoffs.
+
+## EFG (Effective Field Goal Percentage)
+```{r echo=FALSE}
+ggplot(aes(x = EFG), data = nba) +
+  geom_histogram(binwidth = .005)
+
+summary(nba$EFG)
+
+ggplot(aes(x = EFG), data = nba) +
+  geom_histogram(binwidth = .005) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = EFG,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .005, position = 'dodge', alpha = .75)
+
+by(nba$EFG, nba$MadePlayoffs, summary)
+```
+
+The 2nd graph kind of make me think better shooting teams are more likely to be in the playoffs.  The range seems kind of small at .42 to .56.  I figured some teams would be worse.
+
+## Opp_EFG (Opps Effective Field Goal Percentage)
+```{r echo=FALSE}
+ggplot(aes(x = Opp_EFG), data = nba) +
+  geom_histogram(binwidth = .005)
+
+summary(nba$Opp_EFG)
+
+ggplot(aes(x = Opp_EFG), data = nba) +
+  geom_histogram(binwidth = .005) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = Opp_EFG,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .005, position = 'dodge', alpha = .75)
+
+by(nba$Opp_EFG, nba$MadePlayoffs, summary)
+```
+
+I think the 2nd graph paints a similar picture to before.  This time it leads us to think that better defenses will get in the playoffs.  Again, the range is quite small (smaller than EFG) at .42 to .54.
+
+## EFG_diff
+```{r echo=FALSE}
+ggplot(aes(x = EFG_diff), data = nba) +
+  geom_histogram(binwidth = .005)
+
+summary(nba$EFG_diff)
+
+ggplot(aes(x = EFG_diff), data = nba) +
+  geom_histogram(binwidth = .005) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = EFG_diff,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .005, position = 'dodge', alpha = .75)
+
+by(nba$EFG_diff, nba$MadePlayoffs, summary)
+```
+
+It's great to see the normal distribution as that should help with the linear model.  There does seem to be a big effect between playoff and non-playoff teams if you look at the graph.
+
+## TTP (Team Turnovers / Possession)
+```{r echo=FALSE}
+ggplot(aes(x = TTP), data = nba) +
+  geom_histogram(binwidth = .0025)
+
+summary(nba$TTP)
+
+ggplot(aes(x = TTP), data = nba) +
+  geom_histogram(binwidth = .0025) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = TTP,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .0025, position = 'dodge', alpha = .75)
+
+by(nba$TTP, nba$MadePlayoffs, summary)
+```
+
+Teams should expect to turn the ball over between 1/5 to 1/3 of their possessions.  The difference doesn't seem to be as big between playoff and non-playoff teams as compared to EFG.
+
+## DTTP (Defensive (Caused) Turnovers / Possession)
+```{r echo=FALSE}
+ggplot(aes(x = DTTP), data = nba) +
+  geom_histogram(binwidth = .0025)
+
+summary(nba$DTTP)
+
+ggplot(aes(x = DTTP), data = nba) +
+  geom_histogram(binwidth = .0025) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = DTTP,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .0025, position = 'dodge', alpha = .75)
+
+by(nba$DTTP, nba$MadePlayoffs, summary)
+```
+
+Defense seems to cause fewer turnovers than opponents have turnovers, ranging from .19 to .3.  I think this is explainable as there could be "unforced" turnovers for the offense.
+
+## TTP_diff
+```{r echo=FALSE}
+ggplot(aes(x = TTP_diff), data = nba) +
+  geom_histogram(binwidth = .0025)
+
+summary(nba$TTP_diff)
+
+ggplot(aes(x = TTP_diff), data = nba) +
+  geom_histogram(binwidth = .0025) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = TTP_diff,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .005, position = 'dodge', alpha = .75)
+
+by(nba$TTP_diff, nba$MadePlayoffs, summary)
+```
+
+Another very "normalish" variable to use for linear model building.
+
+## ORebRate (Offensive Rebound Rate)
+```{r echo=FALSE}
+ggplot(aes(x = ORebRate), data = nba) +
+  geom_histogram(binwidth = .005)
+
+summary(nba$ORebRate)
+
+ggplot(aes(x = ORebRate), data = nba) +
+  geom_histogram(binwidth = .005) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = ORebRate,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .005, position = 'dodge', alpha = .75)
+
+by(nba$ORebRate, nba$MadePlayoffs, summary)
+```
+
+Teams will expect to grab their off 18% to 38% of their offensive rebounds.  Visually, I'm not sure I can tell a difference between playoff and non-playoff teams for this variable.
+
+## DRebRate (Defensive Rebound Rate)
+```{r echo=FALSE}
+ggplot(aes(x = DRebRate), data = nba) +
+  geom_histogram(binwidth = .005)
+
+summary(nba$DRebRate)
+
+ggplot(aes(x = DRebRate), data = nba) +
+  geom_histogram(binwidth = .005) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = DRebRate,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .005, position = 'dodge', alpha = .75)
+
+by(nba$DRebRate, nba$MadePlayoffs, summary)
+```
+
+Teams appear to grab their defensive rebounds at a much higher rate.  The range is about .56 to .75.  I have heard of strategies were the offense will not go for rebounds as much but instead, get back early (after the initial shot) to play defense.
+
+## RebRate_diff
+```{r echo=FALSE}
+ggplot(aes(x = RebRate_diff), data = nba) +
+  geom_histogram(binwidth = .005)
+
+summary(nba$RebRate_diff)
+
+ggplot(aes(x = RebRate_diff), data = nba) +
+  geom_histogram(binwidth = .005) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = RebRate_diff,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .005, position = 'dodge', alpha = .75)
+
+by(nba$RebRate_diff, nba$MadePlayoffs, summary)
+```
+
+This variable is much less normal.  I almost want to say it has a bi-modal shape to it.
+
+## FTR (Free Throws Made / Field Goal Att)
+```{r echo=FALSE}
+ggplot(aes(x = FTR), data = nba) +
+  geom_histogram(binwidth = .005)
+
+summary(nba$FTR)
+
+ggplot(aes(x = FTR), data = nba) +
+  geom_histogram(binwidth = .005) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = FTR,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .005, position = 'dodge', alpha = .75)
+
+by(nba$FTR, nba$MadePlayoffs, summary)
+```
+
+Teams should expect their "Free Throw Rate" to be between .15 and .33.  The IQR is quite small at only about .04.
+
+## OFTR (Opp. Free Throws Made / Opp. Field Goal Att)
+```{r echo=FALSE}
+ggplot(aes(x = OFTR), data = nba) +
+  geom_histogram(binwidth = .005)
+
+summary(nba$OFTR)
+
+ggplot(aes(x = OFTR), data = nba) +
+  geom_histogram(binwidth = .005) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = OFTR,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .005, position = 'dodge', alpha = .75)
+
+by(nba$OFTR, nba$MadePlayoffs, summary)
+```
+
+Very similar story with OFTR as compared to FTR.
+
+## FTR_diff
+```{r echo=FALSE}
+ggplot(aes(x = FTR_diff), data = nba) +
+  geom_histogram(binwidth = .005)
+
+summary(nba$FTR_diff)
+
+ggplot(aes(x = FTR_diff), data = nba) +
+  geom_histogram(binwidth = .005) +
+  facet_wrap(~MadePlayoffs)
+
+ggplot(aes(x = FTR_diff,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .005, position = 'dodge', alpha = .75)
+
+by(nba$FTR_diff, nba$MadePlayoffs, summary)
+```
+
+Another normal looking variable for the linear model.
+
+Almost all, with the exception being the rebounding graphs, our data have a fairly normal look to it.  The rebounding data is still somewhat normal but I think it almost has a bi-modal distribution.  This is really great news as it allows us to continue with the process of building a model where these variables could predict the win % for a given team.
+
+# Correlation Analysis
+Since I hope to make a Win% Prediction model, I believe my bi-variate analysis and plots should focus on each variable's relationship with the Win% variable to better understand their importance to the model.  I also think I should ensure model viability by making sure the remaining variables are not too correlated with each other.
+
+### Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
+I found that the "difference" variables of EFG, TTP, and FTR definitely have a relationship with winning %.  However, the RebRate difference variable did not have much of a relationship.  This is quite surprising as I thought this would be one of the biggest factors of winning basketball games.
+
+### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
+It's very important to note that the four main difference pair do not have much correlation with each other.  This is very important for the linear regression model assumptions.
+
+### What was the strongest relationship you found?
+As far as I can tell, the EFG difference variable vs winning % was the strongest relationship with a correlation of 85%.  This makes a lot of sense.  It's extremely easy to say that teams that shoot well and keep opponents from shooting well, should win a lot of basketball games.
+
+```{r echo=FALSE, fig.width=10, fig.height=8, Bivariate_Plots}
+nba_num = dplyr::select(nba, `W.L.`, EFG:FTR_diff)
+
+corrplot(cor(nba_num), bg = "gray1", method = "number")
+```
+
+# Correlation Plots
+The first 6 plots below show the strongest relationships with Win%.  The narrative of it makes a lot of sense, if you shoot well, the other teams don't shoot well, and you don't turn the ball over, you are likely to win games.
+
+## EFG vs W.L.
+```{r echo=FALSE}
+ggplot(aes(x = EFG, y = `W.L.`), data = nba) +
+  geom_point(alpha = .25) +
+  stat_smooth(method="lm", se=FALSE)
+
+cat("Correlation:",cor(nba$`W.L.`, nba$EFG))
+
+ggplot(aes(x = EFG, y = `W.L.`), data = nba) +
+  geom_point(aes(color = MadePlayoffs), alpha = .25) +
+  geom_smooth(aes(group = MadePlayoffs), method="lm")
+
+by(nba$EFG, nba$MadePlayoffs, summary)
+```
+
+Fairly strong relationship.  The better a team can shoot effectively, the more games they should win.
+
+## Opp_EFG vs W.L.
+```{r echo=FALSE}
+ggplot(aes(x = Opp_EFG, y = `W.L.`), data = nba) +
+  geom_point(alpha = .25) +
+  stat_smooth(method="lm", se=FALSE)
+
+cat("Correlation:",cor(nba$`W.L.`, nba$Opp_EFG))
+
+ggplot(aes(x = Opp_EFG, y = `W.L.`), data = nba) +
+  geom_point(aes(color = MadePlayoffs), alpha = .25) +
+  geom_smooth(aes(group = MadePlayoffs), method="lm")
+
+by(nba$Opp_EFG, nba$MadePlayoffs, summary)
+```
+
+The variance looks a little larger but there is still a relationship.
+
+## EFG_diff vs W.L.
+```{r echo=FALSE}
+ggplot(aes(x = EFG_diff, y = `W.L.`), data = nba) +
+  geom_point(alpha = .25) +
+  stat_smooth(method="lm", se=FALSE)
+
+cat("Correlation:",cor(nba$`W.L.`, nba$EFG_diff))
+
+ggplot(aes(x = EFG_diff, y = `W.L.`), data = nba) +
+  geom_point(aes(color = MadePlayoffs), alpha = .25) +
+  geom_smooth(aes(group = MadePlayoffs), method="lm")
+
+by(nba$EFG_diff, nba$MadePlayoffs, summary)
+```
+
+This is my strongest relationship in the whole study.  As mentioned early, for very obvious reasons.  Adding the MadePlayoffs variable to the colors helps strengthen the visual of the relationship.
+
+## TTP vs W.L.
+```{r echo=FALSE}
+ggplot(aes(x = TTP, y = `W.L.`), data = nba) +
+  geom_point(alpha = .25) +
+  stat_smooth(method="lm", se=FALSE)
+
+cat("Correlation:",cor(nba$`W.L.`, nba$TTP))
+
+ggplot(aes(x = TTP, y = `W.L.`), data = nba) +
+  geom_point(aes(color = MadePlayoffs), alpha = .25) +
+  geom_smooth(aes(group = MadePlayoffs), method="lm")
+
+by(nba$TTP, nba$MadePlayoffs, summary)
+```
+
+## TTP_diff vs W.L.
+```{r echo=FALSE}
+ggplot(aes(x = TTP_diff, y = `W.L.`), data = nba) +
+  geom_point(alpha = .25) +
+  stat_smooth(method="lm", se=FALSE)
+
+cat("Correlation:",cor(nba$`W.L.`, nba$TTP_diff))
+
+ggplot(aes(x = TTP_diff, y = `W.L.`), data = nba) +
+  geom_point(aes(color = MadePlayoffs), alpha = .25) +
+  geom_smooth(aes(group = MadePlayoffs), method="lm")
+
+by(nba$TTP_diff, nba$MadePlayoffs, summary)
+```
+
+Another fairly strong relationship that indicates that it is better to create turnovers than commit them.
+
+## FTR_diff vs W.L.
+```{r echo=FALSE}
+ggplot(aes(x = FTR_diff, y = `W.L.`), data = nba) +
+  geom_point(alpha = .25) +
+  stat_smooth(method="lm", se=FALSE)
+
+cat("Correlation:",cor(nba$`W.L.`, nba$FTR_diff))
+
+ggplot(aes(x = FTR_diff, y = `W.L.`), data = nba) +
+  geom_point(aes(color = MadePlayoffs), alpha = .25) +
+  geom_smooth(aes(group = MadePlayoffs), method="lm")
+
+by(nba$FTR_diff, nba$MadePlayoffs, summary)
+```
+
+My correlation table shows that there is some correlation for these two variables but it is very difficult to see.
+
+The next two plots of this section show the strongest relationships among non-Win% variables.  They both make a lot of sense.  In the first example, it's easy to explain that teams that shoot well don't have as many opportunities to turn the ball over.  They are playing well and probably aren't as likely to turn the ball over.  In the second example, is a little more difficult to explain away but I could see a situation where teams that go for offensive rebounds are more likely to get fouled (i.e. big guys "hitting the boards" against the defense).
+
+## EFG vs TTP
+```{r echo=FALSE}
+ggplot(aes(x = EFG, y = TTP), data = nba) +
+  geom_point(alpha = .25) +
+  stat_smooth(method="lm", se=FALSE)
+
+cat("Correlation:",cor(nba$EFG, nba$TTP))
+
+ggplot(aes(x = EFG, y = TTP), data = nba) +
+  geom_point(aes(color = MadePlayoffs), alpha = .25) +
+  geom_smooth(aes(group = MadePlayoffs), method="lm")
+
+nba$EFG_cut = cut(nba$EFG, c(.4,.45,.50,.55,.6))
+
+ggplot(aes(x = EFG_cut, y = TTP), data = nba) +
+  geom_boxplot()
+
+by(nba$TTP, nba$EFG_cut, summary)
+```
+
+Adding the playoff coloring doesn't clear the relationship.  In general, it's just not a strong relationship.  I put the 3rd graph in to help clear up the relationship.  I think there is some big variance for poor shooting teams but the average does tend to fall as the EFG goes up.  This might say teams that are effective at shooting aren't as likely to turn the ball over.
+
+## FTR vs ORebRate
+```{r echo=FALSE}
+ggplot(aes(x = FTR, y = ORebRate), data = nba) +
+  geom_point(alpha = .25) +
+  stat_smooth(method="lm", se=FALSE)
+
+cat("Correlation:",cor(nba$FTR, nba$ORebRate))
+
+ggplot(aes(x = FTR, y = ORebRate), data = nba) +
+  geom_point(aes(color = MadePlayoffs), alpha = .25) +
+  geom_smooth(aes(group = MadePlayoffs), method="lm")
+
+nba$FTR_cut = cut(nba$FTR, c(.1,.15,.20,.25,.30,.35))
+
+ggplot(aes(x = FTR_cut, y = ORebRate), data = nba) +
+  geom_boxplot()
+
+by(nba$ORebRate, nba$FTR_cut, summary)
+```
+
+The playoffs factor doesn't seem to have much effect as there are green and red dots throughout the graph.  Again, I created the 3rd graph to see if this would help paint the story of teams that are going for offensive rebounds are more likely to get fouled.  I think there is a lot of variance but the averages do show the relationship we hope to see.
+
+The plot below is very difficult to understand. As I don't know why RebRate_diff isn't correlated with Winning %.  I have always understood rebounding better than your opponent leads to winning the game.
+## RebRate_diff vs W.L.
+```{r echo=FALSE}
+ggplot(aes(x = RebRate_diff, y = `W.L.`), data = nba) +
+  geom_point(alpha = .5) +
+  stat_smooth(method="lm", se=FALSE)
+
+cat("Correlation:",cor(nba$RebRate_diff, nba$`W.L.`))
+
+ggplot(aes(x = RebRate_diff, y = `W.L.`), data = nba) +
+  geom_point(aes(color = MadePlayoffs), alpha = .25) +
+  geom_smooth(aes(group = MadePlayoffs), method="lm")
+
+by(nba$RebRate_diff, nba$MadePlayoffs, summary)
+```
+
+I've also included a few category variable plots.
+
+## W.L. vs MadePlayoffs
+```{r echo=FALSE}
+ggplot(aes(x = MadePlayoffs, y = `W.L.`), data = nba) +
+  geom_boxplot()
+```
+
+The two outliers at the top are not really outliers but the 1996 Bulls (who have the best single season NBA record at 72-10) and the 2016 Warriors (who are are close to breaking that record, currently sitting at 72-9).
+
+## W.L. vs Conference
+```{r echo=FALSE}
+ggplot(aes(x = Conference, y = `W.L.`), data = nba) +
+  geom_boxplot()
+```
+
+# Linear Regression Model
+
+## Creating the Model
+```{r echo=FALSE}
+m1 <- lm(`W.L.` ~ EFG_diff, data = nba)
+m2 <- update(m1, ~ . + TTP_diff)
+m3 <- update(m2, ~ . + RebRate_diff)
+m4 <- update(m3, ~ . + FTR_diff)
+mtable(m1, m2, m3, m4, sdigits = 2)
+```
+
+## Attach Predictions to DF
+```{r echo=FALSE}
+nba$hat_W.L. = predict(m4)
+nba$prediction_error = nba$hat_W.L. - nba$`W.L.`
+
+sum(abs(nba$prediction_error)) / length(nba$prediction_error)
+```
+
+Looks like the model predicts winning % with only a 4.4% absolute error rate!  Not too bad.
+
+## Did you create any models with your dataset? Discuss the strengths and limitations of your model.
+Yes.  The model is able to account for 88% of the variance in Winning percentage of teams each year.  This is based on using the 4 pairing difference variables as inputs.  This models allows one to fairly accurate predict the winning % based on those four variables.  The most important factor, by far, is the EFG_diff variable as using that variable alone I am able to account for 71% of the variance.
+
+------
+
+# Final Plots and Summary
+
+### Plot One - Histogram of Winning %, Broken out by Playoff & Non-Playoff Teams
+```{r echo=FALSE, Plot_One}
+ggplot(aes(x = `W.L.`,fill = MadePlayoffs), data = nba) +
+  geom_histogram(binwidth = .02, position = 'dodge', alpha = .75) +
+  xlab('Winning %') +
+  ylab('Frequency') +
+  ggtitle('Histogram of Winning %, Broken out by Playoff & Non-Playoff Teams')
+```
+
+### Description One
+I believe this charts states the most obvious statement.  If your team wins basketball games, your team is more likely to make it to the playoffs.  The colors really complete the picture as they are quite differentiated from the left and right.  However, I will note there does appear to be instances of losing teams (teams with a Win% below 50%) making the playoffs and winning teams (teams with a Win% above 50%) not making the playoffs.
+
+### Plot Two - EFG Difference vs Winning %
+```{r echo=FALSE, Plot_Two}
+ggplot(aes(x = EFG_diff, y = `W.L.`), data = nba) +
+  geom_point(aes(color = MadePlayoffs), alpha = .25) +
+  geom_smooth(aes(group = MadePlayoffs), method="lm") +
+  xlab("EFG Difference (Team vs Opp)") +
+  ylab('Winning %') +
+  ggtitle('EFG Difference vs Winning %')
+```
+
+### Description Two
+This chart helps display the strongest variable for the linear regression model.  The EFG Difference variable controls about 71% of the variance of predicting winning %.  I've also added some playoff coloring to help show the effectiveness of the variable.
+
+### Plot Three
+```{r echo=FALSE, Plot_Three}
+ggplot(aes(x = EFG_cut, y = TTP), data = nba) +
+  geom_boxplot() +
+  xlab('Effective Field Goal % Groupings') +
+  ylab('Turnovers / Possession') +
+  ggtitle('Effective Field Goal % Groupings vs Turnovers / Possession')
+```
+
+### Description Three
+This graph is not critical to exploring the main goal of the project (Predicting Win%).  However, I did want to give any noticeable relationship (In this case, about .4) an investigation.  I was trying to better understand why this relationship is present.  My first thought is that teams that shoot well are probably just playing good basketball and not turning the ball over as much.  I believe there is a lot of variance but the mean/median does show the relationship we hope to see..  I think this happens some but it is nowhere near air tight.
+
+------
+
+# Reflection
+This study was definitely a learning experience.  It began by reading Winston's chapters on quantifying wins within NBA, became slightly difficult scraping the data from Basketball Reference, and then became very tedious building graph after graph.
+
+In Winston's chapter on basketball, he only looked at one years worth of basketball statistics to calculate wins.  I knew I could expand that study to as many years as they had relevant data but I would need to change from wins to winning % as some years don't have the same amount of games played.  Going from there I really had to dive in on the "rvest" package to learn more about web scraping in R (I've already completed the Data Wrangling Course and I think it helped a lot).  I found that the data was mostly clean except for slight variations that occurs over the years at the Basketball Reference site (i.e. Some years they label 3P% as 3P, other it is labeled correctly.)
+
+Once I had all my data, I originally only had the mindset of replicating the Winston linear model.  I wanted to test the winning percentage model and call it a day.  However, I decided to go along with the project outline and I found myself looking at the data in other ways that led to other questions I could be asking (i.e. Why do teams have less turnovers when they shoot well?).  By the time I reached the conclusion, I didn't even care about the original model because I wanted to investigate the other questions.  I feel the project definitely opened my eyes about how much we can miss out on if we don't give the exploratory data analysis the attention and detail it deserves.

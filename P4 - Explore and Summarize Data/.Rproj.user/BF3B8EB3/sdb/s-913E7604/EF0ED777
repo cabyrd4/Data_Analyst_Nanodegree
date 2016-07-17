@@ -1,0 +1,28 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1467244382333.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "EF0ED777",
+    "lastKnownWriteTime" : 4294967296,
+    "last_content_update" : 1467244382333,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "lqvo1u1enq",
+        "caption" : "nba_data",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=nba_data&cache_key=lqvo1u1enq",
+        "displayedObservations" : 120,
+        "environment" : "",
+        "object" : "nba_data",
+        "totalObservations" : 120,
+        "variables" : 60
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}
